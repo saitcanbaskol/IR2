@@ -1,17 +1,15 @@
 import lucene
 lucene.initVM()
 
-from org.apache.lucene.analysis.en import EnglishAnalyzer
-from org.apache.lucene.analysis.core import LowerCaseFilter, StopFilter
-from org.apache.lucene.analysis import Analyzer
-from org.apache.lucene.analysis.miscellaneous import ASCIIFoldingFilter
-from org.apache.lucene.document import Document, Field, TextField
-from org.apache.lucene.index import IndexWriter, IndexWriterConfig, DirectoryReader
-from org.apache.lucene.queryparser.classic import QueryParser
-from org.apache.lucene.search import IndexSearcher
-from org.apache.lucene.search.similarities import BM25Similarity
-from org.apache.lucene.store import FSDirectory
-from java.nio.file import Paths
+from org.apache.lucene.analysis.en import EnglishAnalyzer # type: ignore
+from org.apache.lucene.analysis.standard import StandardAnalyzer # type: ignore
+from org.apache.lucene.document import Document, Field, TextField # type: ignore
+from org.apache.lucene.index import IndexWriter, IndexWriterConfig, DirectoryReader # type: ignore
+from org.apache.lucene.queryparser.classic import QueryParser # type: ignore
+from org.apache.lucene.search import IndexSearcher # type: ignore
+from org.apache.lucene.search.similarities import BM25Similarity, LMJelinekMercerSimilarity, LMDirichletSimilarity # type: ignore
+from org.apache.lucene.store import FSDirectory # type: ignore
+from java.nio.file import Paths # type: ignore
 import pandas as pd
 import os
 import re
@@ -20,7 +18,8 @@ import csv
 # Set up directory and analyzer with custom filters
 index_path = "index"
 directory = FSDirectory.open(Paths.get(index_path))
-analyzer = EnglishAnalyzer()  # Use EnglishAnalyzer directly
+analyzer = StandardAnalyzer()
+#analyzer = EnglishAnalyzer()
 config = IndexWriterConfig(analyzer)
 writer = IndexWriter(directory, config)
 
@@ -42,7 +41,7 @@ def index_documents(writer, dataset_path):
 
 # Choose the dataset path based on the dataset size you want to work with
 dataset_path = "full_docs"  # Change this to your dataset directory
-index_documents(writer, dataset_path)
+index_documents(writer, dataset_path) #comment this line if u already generated index and want to play with other parameters
 print("Indexing completed.")
 
 # Function to safely escape special characters in the query
@@ -57,7 +56,10 @@ def search(query_str, analyzer, index_path, top_n=10):
     directory = FSDirectory.open(Paths.get(index_path))
     reader = DirectoryReader.open(directory)
     searcher = IndexSearcher(reader)
-    searcher.setSimilarity(BM25Similarity())  # Set BM25 Similarity
+    # Choose a similarity measure below by uncommenting and commenting
+    #searcher.setSimilarity(BM25Similarity())
+    searcher.setSimilarity(LMDirichletSimilarity())
+    #searcher.setSimilarity(LMJelinekMercerSimilarity(0.7))
 
     query = QueryParser("content", analyzer).parse(query_str)
     hits = searcher.search(query, top_n).scoreDocs  # Retrieve exactly top_n documents
@@ -77,7 +79,7 @@ def search(query_str, analyzer, index_path, top_n=10):
 
 # Process queries and save top 10 results for each query to a CSV
 def process_queries_csv(query_file, analyzer, index_path, output_file="output_results.csv"):
-    queries = pd.read_csv(query_file, sep="\t", header=0, names=["Query_number", "Query"])
+    queries = pd.read_csv(query_file, header=0, names=["Query_number", "Query"])
 
     # Open the output file in write mode
     with open(output_file, mode="w", newline="") as csvfile:
@@ -97,12 +99,10 @@ def process_queries_csv(query_file, analyzer, index_path, output_file="output_re
     print(f"Query processing completed. Results saved to {output_file}.")
 
 # Specify the query file and process it
-query_file = "dev_queries.tsv"  # Replace with your query file path
-process_queries_csv(query_file, analyzer, index_path, output_file="final_output_large.csv")
+query_file = "dev_queries.csv"  # Replace with your query file path
+process_queries_csv(query_file, analyzer, index_path, output_file="result.csv")
 
-# Evaluation functions remain unchanged, so you can reuse your evaluation code here.
-# Ensure you run the evaluate function as needed.
-
+# Evaluation functions remain unchanged from our First Assignment
 
 # Evaluation functions
 def load_results(output_file):
@@ -203,4 +203,4 @@ def evaluate(output_file, ground_truth_file, k_values, result_file):
             f.write(output_str)
 
 # Run the evaluation
-evaluate('final_output_large.csv', 'dev_query_results.csv', [3, 10], 'results_large.txt')
+evaluate('result.csv', 'dev_query_results.csv', [1,3, 5, 10], 'evaluation_result.txt')
